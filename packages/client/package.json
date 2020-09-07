@@ -1,0 +1,14 @@
+{
+  "name": "client",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "generate-elm-types": "elm-graphql https://iil2riwenfchbdleoziie3yyse.appsync-api.ap-southeast-2.amazonaws.com/graphql --base ItemsApi --output generated-src"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@dillonkearns/elm-graphql": "^4.0.3"
+  }
+}
