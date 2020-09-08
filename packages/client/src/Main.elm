@@ -39,6 +39,8 @@ type Msg
     | Change String
     | Submit
     | GotSave (Result (Graphql.Http.Error (Maybe Item)) (Maybe Item))
+    | Delete ItemsApi.Scalar.Id
+    | GotDelete (Result (Graphql.Http.Error (Maybe Item)) (Maybe Item))
 
 
 init : String -> ( Model, Cmd Msg )
@@ -72,6 +74,24 @@ update msg model =
         GotSave (Err _) ->
             ( model, Cmd.none )
 
+        Delete itemsId ->
+            ( model, makeDeleteMutationRequest model.apiKey itemsId )
+
+        GotDelete (Ok item) ->
+            case item of
+                Just item_ ->
+                    ( { model
+                        | items = List.filter (\itm -> itm.itemsId /= item_.itemsId) model.items
+                      }
+                    , Cmd.none
+                    )
+
+                Nothing ->
+                    ( model, Cmd.none )
+
+        GotDelete (Err _) ->
+            ( model, Cmd.none )
+
 
 view : Model -> Html Msg
 view model =
@@ -87,8 +107,11 @@ viewAdd =
 
 
 viewItem : Item -> Html Msg
-viewItem { name } =
-    div [] [ text <| Maybe.withDefault "-" name ]
+viewItem { itemsId, name } =
+    div []
+        [ text <| Maybe.withDefault "-" name
+        , button [ onClick (Delete itemsId) ] [ text "delete" ]
+        ]
 
 
 itemsSelection : SelectionSet Item ItemsApi.Object.Items
@@ -119,6 +142,14 @@ makeMutationRequest apiKey name =
         |> Graphql.Http.send GotSave
 
 
+makeDeleteMutationRequest : String -> ItemsApi.Scalar.Id -> Cmd Msg
+makeDeleteMutationRequest apiKey id =
+    delete id
+        |> Graphql.Http.mutationRequest url
+        |> Graphql.Http.withHeader "x-api-key" apiKey
+        |> Graphql.Http.send GotDelete
+
+
 queryAll : SelectionSet (List Item) RootQuery
 queryAll =
     Query.all
@@ -129,6 +160,11 @@ queryAll =
 save : String -> SelectionSet (Maybe Item) RootMutation
 save name =
     Mutation.save { name = name } itemsSelection
+
+
+delete : ItemsApi.Scalar.Id -> SelectionSet (Maybe Item) RootMutation
+delete id =
+    Mutation.delete { itemsId = id } itemsSelection
 
 
 subscriptions : Model -> Sub Msg
