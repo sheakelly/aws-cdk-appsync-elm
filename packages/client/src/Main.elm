@@ -1,38 +1,136 @@
 module Main exposing (Msg(..), main, update, view)
 
 import Browser
-import Html exposing (Html, button, div, text)
-import Html.Events exposing (onClick)
+import Graphql.Http
+import Graphql.Operation exposing (RootMutation, RootQuery)
+import Graphql.OptionalArgument exposing (OptionalArgument(..))
+import Graphql.SelectionSet as SelectionSet exposing (SelectionSet)
+import Html exposing (Html, button, div, input, text)
+import Html.Attributes exposing (placeholder)
+import Html.Events exposing (onClick, onInput)
+import ItemsApi.Mutation as Mutation
+import ItemsApi.Object
+import ItemsApi.Object.Items as Items
+import ItemsApi.Object.Paginateditems
+import ItemsApi.Query as Query
+import ItemsApi.Scalar
 
 
-main : Program () Model Msg
+main : Program String Model Msg
 main =
-    Browser.sandbox { init = 0, update = update, view = view }
+    Browser.element { init = init, update = update, view = view, subscriptions = subscriptions }
+
+
+type alias Item =
+    { itemsId : ItemsApi.Scalar.Id
+    , name : Maybe String
+    }
 
 
 type alias Model =
-    Int
+    { apiKey : String
+    , items : List Item
+    , input : String
+    }
 
 
 type Msg
-    = Increment
-    | Decrement
+    = GotItems (Result (Graphql.Http.Error (List Item)) (List Item))
+    | Change String
+    | Submit
+    | GotSave (Result (Graphql.Http.Error (Maybe Item)) (Maybe Item))
 
 
-update : Msg -> Model -> Model
+init : String -> ( Model, Cmd Msg )
+init apiKey =
+    ( { apiKey = apiKey, items = [], input = "" }, makeQueryRequest apiKey )
+
+
+update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        Increment ->
-            model + 1
+        GotItems (Ok items) ->
+            ( { model | items = items }, Cmd.none )
 
-        Decrement ->
-            model - 1
+        GotItems (Err _) ->
+            ( model, Cmd.none )
+
+        Change value ->
+            ( { model | input = value }, Cmd.none )
+
+        Submit ->
+            ( { model | input = "" }, makeMutationRequest model.apiKey model.input )
+
+        GotSave (Ok item) ->
+            case item of
+                Just item_ ->
+                    ( { model | items = model.items ++ [ item_ ] }, Cmd.none )
+
+                Nothing ->
+                    ( model, Cmd.none )
+
+        GotSave (Err _) ->
+            ( model, Cmd.none )
 
 
 view : Model -> Html Msg
 view model =
+    div [] (List.map viewItem model.items ++ [ viewAdd ])
+
+
+viewAdd : Html Msg
+viewAdd =
     div []
-        [ button [ onClick Decrement ] [ text "-" ]
-        , div [] [ text (String.fromInt model) ]
-        , button [ onClick Increment ] [ text "+" ]
+        [ input [ placeholder "New value", onInput Change ] []
+        , button [ onClick Submit ] [ text "submit" ]
         ]
+
+
+viewItem : Item -> Html Msg
+viewItem { name } =
+    div [] [ text <| Maybe.withDefault "-" name ]
+
+
+itemsSelection : SelectionSet Item ItemsApi.Object.Items
+itemsSelection =
+    SelectionSet.map2 Item
+        Items.itemsId
+        Items.name
+
+
+url : String
+url =
+    "https://iil2riwenfchbdleoziie3yyse.appsync-api.ap-southeast-2.amazonaws.com/graphql"
+
+
+makeQueryRequest : String -> Cmd Msg
+makeQueryRequest apiKey =
+    queryAll
+        |> Graphql.Http.queryRequest url
+        |> Graphql.Http.withHeader "x-api-key" apiKey
+        |> Graphql.Http.send GotItems
+
+
+makeMutationRequest : String -> String -> Cmd Msg
+makeMutationRequest apiKey name =
+    save name
+        |> Graphql.Http.mutationRequest url
+        |> Graphql.Http.withHeader "x-api-key" apiKey
+        |> Graphql.Http.send GotSave
+
+
+queryAll : SelectionSet (List Item) RootQuery
+queryAll =
+    Query.all
+        (\_ -> { limit = Absent, nextToken = Absent })
+        (ItemsApi.Object.Paginateditems.items itemsSelection)
+
+
+save : String -> SelectionSet (Maybe Item) RootMutation
+save name =
+    Mutation.save { name = name } itemsSelection
+
+
+subscriptions : Model -> Sub Msg
+subscriptions _ =
+    Sub.none

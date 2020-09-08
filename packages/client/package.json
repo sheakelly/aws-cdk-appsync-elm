@@ -4,11 +4,18 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "generate-elm-types": "elm-graphql https://iil2riwenfchbdleoziie3yyse.appsync-api.ap-southeast-2.amazonaws.com/graphql --base ItemsApi --output generated-src"
+    "generate-elm-types": "elm-graphql https://iil2riwenfchbdleoziie3yyse.appsync-api.ap-southeast-2.amazonaws.com/graphql --base ItemsApi --output generated-src",
+    "start": "parcel --https ./src/index.html"
   },
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "@dillonkearns/elm-graphql": "^4.0.3"
+    "@dillonkearns/elm-graphql": "^4.0.3",
+    "elm-hot": "^1.1.5",
+    "node-elm-compiler": "^5.0.5",
+    "elm": "latest-0.19.1"
+  },
+  "dependencies": {
+    "parcel-bundler": "^1.12.4"
   }
 }

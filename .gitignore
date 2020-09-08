@@ -12,3 +12,5 @@ cdk.out
 
 generated-src/
 elm-stuff/
+.cache/
+dist/
